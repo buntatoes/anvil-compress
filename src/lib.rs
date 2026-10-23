@@ -2,9 +2,14 @@
 //!
 //! Implements bitstream decoding for uncompressed blocks, fixed Huffman trees,
 //! and dynamic Huffman trees with LZ77 sliding-window back-references, plus
-//! Adler-32 and CRC-32 checksum verification.
+//! Adler-32 and CRC-32 checksum verification and bounded decompression-bomb
+//! protection.
 
 use std::fmt;
+
+/// Default maximum decompressed payload size (32 MiB) enforced to prevent
+/// decompression-bomb memory exhaustion on untrusted streams.
+pub const DEFAULT_MAX_DECOMPRESSED_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompressError {
@@ -15,6 +20,7 @@ pub enum CompressError {
     InvalidHuffmanTree,
     InvalidSymbol,
     InvalidDistance,
+    OutputTooLarge { limit: usize },
     ChecksumMismatch { expected: u32, actual: u32 },
     LengthMismatch { expected: u32, actual: u32 },
 }
@@ -29,6 +35,12 @@ impl fmt::Display for CompressError {
             Self::InvalidHuffmanTree => write!(f, "invalid Huffman code lengths"),
             Self::InvalidSymbol => write!(f, "invalid Huffman symbol in stream"),
             Self::InvalidDistance => write!(f, "LZ77 distance exceeds output buffer"),
+            Self::OutputTooLarge { limit } => {
+                write!(
+                    f,
+                    "decompressed output exceeds safety limit of {limit} bytes"
+                )
+            }
             Self::ChecksumMismatch { expected, actual } => {
                 write!(
                     f,
@@ -103,14 +115,28 @@ pub fn crc32(data: &[u8]) -> u32 {
     !crc
 }
 
-/// Decompress a raw DEFLATE bitstream.
+/// Decompress a raw DEFLATE bitstream with the default 32 MiB output limit.
 pub fn decompress_deflate(input: &[u8]) -> Result<Vec<u8>, CompressError> {
-    let mut reader = BitReader::new(input);
-    decompress_deflate_from_reader(&mut reader)
+    decompress_deflate_bounded(input, DEFAULT_MAX_DECOMPRESSED_BYTES)
 }
 
-/// Decompress a zlib-wrapped DEFLATE stream and verify its Adler-32 trailer.
+/// Decompress a raw DEFLATE bitstream enforcing a caller-supplied `max_output` byte cap.
+pub fn decompress_deflate_bounded(
+    input: &[u8],
+    max_output: usize,
+) -> Result<Vec<u8>, CompressError> {
+    let mut reader = BitReader::new(input);
+    decompress_deflate_from_reader(&mut reader, max_output)
+}
+
+/// Decompress a zlib-wrapped DEFLATE stream and verify its Adler-32 trailer
+/// with the default 32 MiB output limit.
 pub fn decompress_zlib(input: &[u8]) -> Result<Vec<u8>, CompressError> {
+    decompress_zlib_bounded(input, DEFAULT_MAX_DECOMPRESSED_BYTES)
+}
+
+/// Decompress a zlib-wrapped DEFLATE stream enforcing a caller-supplied `max_output` byte cap.
+pub fn decompress_zlib_bounded(input: &[u8], max_output: usize) -> Result<Vec<u8>, CompressError> {
     if input.len() < 6 {
         return Err(CompressError::UnexpectedEof);
     }
@@ -136,7 +162,7 @@ pub fn decompress_zlib(input: &[u8]) -> Result<Vec<u8>, CompressError> {
     }
 
     let mut reader = BitReader::new(&input[2..]);
-    let output = decompress_deflate_from_reader(&mut reader)?;
+    let output = decompress_deflate_from_reader(&mut reader, max_output)?;
     reader.align_to_byte();
     let expected = reader.read_u32_be()?;
     let actual = adler32(&output);
@@ -146,8 +172,14 @@ pub fn decompress_zlib(input: &[u8]) -> Result<Vec<u8>, CompressError> {
     Ok(output)
 }
 
-/// Decompress a gzip-wrapped DEFLATE stream and verify its CRC-32 and ISIZE trailer.
+/// Decompress a gzip-wrapped DEFLATE stream and verify its CRC-32 and ISIZE trailer
+/// with the default 32 MiB output limit.
 pub fn decompress_gzip(input: &[u8]) -> Result<Vec<u8>, CompressError> {
+    decompress_gzip_bounded(input, DEFAULT_MAX_DECOMPRESSED_BYTES)
+}
+
+/// Decompress a gzip-wrapped DEFLATE stream enforcing a caller-supplied `max_output` byte cap.
+pub fn decompress_gzip_bounded(input: &[u8], max_output: usize) -> Result<Vec<u8>, CompressError> {
     if input.len() < 18 {
         return Err(CompressError::UnexpectedEof);
     }
@@ -193,7 +225,7 @@ pub fn decompress_gzip(input: &[u8]) -> Result<Vec<u8>, CompressError> {
     }
 
     let mut reader = BitReader::new(&input[pos..]);
-    let output = decompress_deflate_from_reader(&mut reader)?;
+    let output = decompress_deflate_from_reader(&mut reader, max_output)?;
     reader.align_to_byte();
     let expected_crc = reader.read_u32_le()?;
     let expected_size = reader.read_u32_le()?;
@@ -342,7 +374,10 @@ fn write_fixed_length_distance(writer: &mut BitWriter, length: usize, distance: 
     }
 }
 
-fn decompress_deflate_from_reader(reader: &mut BitReader<'_>) -> Result<Vec<u8>, CompressError> {
+fn decompress_deflate_from_reader(
+    reader: &mut BitReader<'_>,
+    max_output: usize,
+) -> Result<Vec<u8>, CompressError> {
     let mut output = Vec::new();
     loop {
         let is_final = reader.read_bits(1)? != 0;
@@ -356,16 +391,19 @@ fn decompress_deflate_from_reader(reader: &mut BitReader<'_>) -> Result<Vec<u8>,
                 if len != !nlen {
                     return Err(CompressError::InvalidStoredLength);
                 }
+                if output.len().saturating_add(len as usize) > max_output {
+                    return Err(CompressError::OutputTooLarge { limit: max_output });
+                }
                 let bytes = reader.read_exact_bytes(len as usize)?;
                 output.extend_from_slice(bytes);
             }
             1 => {
                 let (lit_tree, dist_tree) = fixed_trees()?;
-                decode_huffman_block(reader, &lit_tree, &dist_tree, &mut output)?;
+                decode_huffman_block(reader, &lit_tree, &dist_tree, &mut output, max_output)?;
             }
             2 => {
                 let (lit_tree, dist_tree) = read_dynamic_trees(reader)?;
-                decode_huffman_block(reader, &lit_tree, &dist_tree, &mut output)?;
+                decode_huffman_block(reader, &lit_tree, &dist_tree, &mut output, max_output)?;
             }
             other => return Err(CompressError::InvalidBlockType(other)),
         }
@@ -382,11 +420,17 @@ fn decode_huffman_block(
     lit_tree: &HuffmanTree,
     dist_tree: &HuffmanTree,
     output: &mut Vec<u8>,
+    max_output: usize,
 ) -> Result<(), CompressError> {
     loop {
         let sym = lit_tree.decode(reader)?;
         match sym {
-            0..=255 => output.push(sym as u8),
+            0..=255 => {
+                if output.len() >= max_output {
+                    return Err(CompressError::OutputTooLarge { limit: max_output });
+                }
+                output.push(sym as u8);
+            }
             256 => break,
             257..=285 => {
                 let idx = (sym - 257) as usize;
@@ -404,6 +448,9 @@ fn decode_huffman_block(
 
                 if distance == 0 || distance > output.len() {
                     return Err(CompressError::InvalidDistance);
+                }
+                if output.len().saturating_add(length) > max_output {
+                    return Err(CompressError::OutputTooLarge { limit: max_output });
                 }
                 let start = output.len() - distance;
                 for i in 0..length {
@@ -699,5 +746,16 @@ mod tests {
             decompress_zlib(&zlib),
             Err(CompressError::ChecksumMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn rejects_decompression_bombs_exceeding_output_limit() {
+        let payload = vec![b'A'; 4096];
+        let gz = compress_gzip(&payload);
+        assert!(matches!(
+            decompress_gzip_bounded(&gz, 1024),
+            Err(CompressError::OutputTooLarge { limit: 1024 })
+        ));
+        assert_eq!(decompress_gzip_bounded(&gz, 4096).unwrap().len(), 4096);
     }
 }
