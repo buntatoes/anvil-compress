@@ -10,8 +10,7 @@
   </p>
 </div>
 
-> [!NOTE]
-> **Proof of Concept (PoC) Notice**: `flux-compress` is a standalone, zero-dependency **Proof of Concept** compression and bounded decompression library authored from scratch by **Buntos** as part of the [**Flux Browser**](https://github.com/buntatoes/flux-browser) engine ecosystem. It demonstrates a self-contained implementation of **DEFLATE** (RFC 1951), **zlib** (RFC 1950), and **gzip** (RFC 1952) with built-in decompression-bomb protection (`DEFAULT_MAX_DECOMPRESSED_BYTES = 32 MiB`) and checksum verification (**Adler-32** and **CRC-32**) using zero third-party crates.
+`flux-compress` is a standalone, zero-dependency Rust library implementing **DEFLATE** (RFC 1951), **zlib** (RFC 1950), and **gzip** (RFC 1952) compression, bounded decompression, decompression-bomb protection (`DEFAULT_MAX_DECOMPRESSED_BYTES = 32 MiB`), and **Adler-32** / **CRC-32** checksum verification, built from scratch as part of the [**Flux Browser**](https://github.com/buntatoes/flux-browser) Proof of Concept engine ecosystem.
 
 ---
 

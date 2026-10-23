@@ -2,7 +2,7 @@
 
 ## Proof of Concept (PoC) Notice
 
-`flux-compress` is a standalone, zero-dependency **Proof of Concept (PoC)** compression and bounded decompression library (`DEFLATE`, `zlib`, `gzip`) authored from scratch by **Buntos** as part of the [**Flux Browser**](https://github.com/buntatoes/flux-browser) engine ecosystem.
+`flux-compress` is a standalone, zero-dependency **Proof of Concept (PoC)** compression and bounded decompression library (`DEFLATE`, `zlib`, `gzip`) built from scratch as part of the [**Flux Browser**](https://github.com/buntatoes/flux-browser) engine ecosystem.
 
 ---
 
