@@ -1,14 +1,20 @@
-# flux-compress
+<div align="center">
+  <h1>flux-compress</h1>
+  <p><strong>Zero-Dependency DEFLATE, zlib (Adler-32), and gzip (CRC-32) Compression &amp; Bounded Decompression Library (Proof of Concept)</strong></p>
+  <p>
+    <a href="https://github.com/buntatoes/flux-compress/releases/tag/v.02"><img src="https://img.shields.io/badge/release-v.02-e8c37a?style=flat-square" alt="Release v.02" /></a>
+    <img src="https://img.shields.io/badge/status-Proof_of_Concept_(PoC)-d4a359?style=flat-square" alt="Proof of Concept" />
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MPL--2.0-blue?style=flat-square" alt="License MPL-2.0" /></a>
+    <a href="https://github.com/buntatoes/flux-compress"><img src="https://img.shields.io/badge/rust-2024_edition-orange?style=flat-square" alt="Rust 2024 Edition" /></a>
+  </p>
+</div>
 
-[![Release](https://img.shields.io/badge/release-v.02-e8c37a)](https://github.com/buntatoes/flux-compress/releases/tag/v.02)
-[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](./LICENSE)
-[![Edition](https://img.shields.io/badge/rust-2024_edition-orange.svg)](https://github.com/buntatoes/flux-compress)
-
-`flux-compress` is a standalone, zero-dependency Rust library implementing **DEFLATE** (RFC 1951), **zlib** (RFC 1950), and **gzip** (RFC 1952) compression, bounded decompression, decompression-bomb protection, and checksum verification (**Adler-32** and **CRC-32**).
+> [!NOTE]
+> **Proof of Concept (PoC) Notice**: `flux-compress` is a standalone, zero-dependency **Proof of Concept** compression and bounded decompression library authored from scratch by **Buntos** as part of the [**Flux Browser**](https://github.com/buntatoes/flux-browser) engine ecosystem. It demonstrates a self-contained implementation of **DEFLATE** (RFC 1951), **zlib** (RFC 1950), and **gzip** (RFC 1952) with built-in decompression-bomb protection (`DEFAULT_MAX_DECOMPRESSED_BYTES = 32 MiB`) and checksum verification (**Adler-32** and **CRC-32**) using zero third-party crates.
 
 ---
 
-## Features
+## Features (`v.02`)
 
 - **Raw DEFLATE (`decompress_deflate` / `decompress_deflate_bounded` / `compress_deflate`)**:
   - Uncompressed stored blocks (`BTYPE = 00`)
@@ -79,4 +85,4 @@ Licensed under the Mozilla Public License Version 2.0 ([`MPL-2.0`](./LICENSE)).
 
 ## Author
 
-**Buntos**
+**Buntos** ([@buntatoes](https://github.com/buntatoes))
