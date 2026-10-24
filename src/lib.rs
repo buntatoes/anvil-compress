@@ -14,12 +14,12 @@
 //! writes one final fixed-Huffman block. It does not write dynamic blocks.
 //! `adler32` and `crc32` are public. They are the checksums those trailers use.
 //!
-//! root-image calls `crc32`, `compress_zlib`, and `decompress_zlib_bounded`
-//! for PNG. root-video zlib-compresses frame payloads with `compress_zlib`
-//! and `decompress_zlib_bounded`. root-net decompresses HTTP gzip bodies with
+//! anvil-image calls `crc32`, `compress_zlib`, and `decompress_zlib_bounded`
+//! for PNG. anvil-video zlib-compresses frame payloads with `compress_zlib`
+//! and `decompress_zlib_bounded`. anvil-net decompresses HTTP gzip bodies with
 //! `decompress_gzip_bounded`, and HTTP deflate bodies by trying
 //! `decompress_zlib_bounded` and then `decompress_deflate_bounded`. The
-//! root-browser installer and profile snapshots use `compress_zlib` and
+//! anvil-browser installer and profile snapshots use `compress_zlib` and
 //! `decompress_zlib_bounded`. No other crate calls this one.
 //!
 //! Decompression stops at `max_output` bytes. The default,
@@ -157,7 +157,7 @@ pub fn adler32(data: &[u8]) -> u32 {
 /// The register starts at `0xFFFF_FFFF`. Each input byte is mixed low bit
 /// first with the reflected polynomial `0xEDB8_8320`. The returned word is
 /// the bitwise complement of the register. The sum covers `data` only.
-/// gzip stores it little-endian. root-image calls this for PNG chunk CRCs.
+/// gzip stores it little-endian. anvil-image calls this for PNG chunk CRCs.
 /// `compress_gzip` and `decompress_gzip_bounded` call it for the trailer.
 pub fn crc32(data: &[u8]) -> u32 {
     let mut crc: u32 = 0xFFFF_FFFF;
@@ -180,7 +180,7 @@ pub fn crc32(data: &[u8]) -> u32 {
 ///
 /// There is no zlib or gzip wrapper and no checksum. The result is every
 /// block concatenated. `OutputTooLarge` uses `DEFAULT_MAX_DECOMPRESSED_BYTES`.
-/// root-net calls the bounded form, not this one, for HTTP deflate.
+/// anvil-net calls the bounded form, not this one, for HTTP deflate.
 pub fn decompress_deflate(input: &[u8]) -> Result<Vec<u8>, CompressError> {
     decompress_deflate_bounded(input, DEFAULT_MAX_DECOMPRESSED_BYTES)
 }
@@ -190,7 +190,7 @@ pub fn decompress_deflate(input: &[u8]) -> Result<Vec<u8>, CompressError> {
 /// Returns the uncompressed bytes. Growing past `max_output` is
 /// `OutputTooLarge { limit: max_output }` and no buffer. Other failures are
 /// block errors: bad BTYPE, stored-length complement, Huffman data, distance,
-/// or an early end of input. There is no checksum. root-net calls this when
+/// or an early end of input. There is no checksum. anvil-net calls this when
 /// an HTTP `deflate` body is not valid zlib.
 pub fn decompress_deflate_bounded(
     input: &[u8],
@@ -214,9 +214,9 @@ pub fn decompress_zlib(input: &[u8]) -> Result<Vec<u8>, CompressError> {
 /// The header must be DEFLATE (method 8) with CINFO at most 7. The 16-bit
 /// header word must be divisible by 31. A preset dictionary is
 /// `InvalidHeader`. The Adler-32 trailer is big-endian and covers the
-/// uncompressed output only. Bytes after that trailer are ignored. root-image
-/// (PNG), root-video (frame payloads), root-net (HTTP deflate, tried first),
-/// and the root-browser installer and profile snapshots call this.
+/// uncompressed output only. Bytes after that trailer are ignored. anvil-image
+/// (PNG), anvil-video (frame payloads), anvil-net (HTTP deflate, tried first),
+/// and the anvil-browser installer and profile snapshots call this.
 pub fn decompress_zlib_bounded(input: &[u8], max_output: usize) -> Result<Vec<u8>, CompressError> {
     if input.len() < 6 {
         return Err(CompressError::UnexpectedEof);
@@ -259,7 +259,7 @@ pub fn decompress_zlib_bounded(input: &[u8], max_output: usize) -> Result<Vec<u8
 
 /// Decompresses one gzip member, capped at 32 MiB, and checks CRC-32 and ISIZE.
 ///
-/// Both trailer words are little-endian. root-net calls the bounded form so
+/// Both trailer words are little-endian. anvil-net calls the bounded form so
 /// it can pass the HTTP body cap.
 pub fn decompress_gzip(input: &[u8]) -> Result<Vec<u8>, CompressError> {
     decompress_gzip_bounded(input, DEFAULT_MAX_DECOMPRESSED_BYTES)
@@ -271,7 +271,7 @@ pub fn decompress_gzip(input: &[u8]) -> Result<Vec<u8>, CompressError> {
 /// FCOMMENT are skipped. FHCRC's two bytes are skipped and not checked.
 /// Other flag bits do not move the cursor and are not rejected. CRC-32 and
 /// ISIZE are little-endian. ISIZE is the uncompressed length modulo 2^32.
-/// Bytes after the trailer are ignored. root-net calls this for HTTP `gzip`
+/// Bytes after the trailer are ignored. anvil-net calls this for HTTP `gzip`
 /// and `x-gzip` bodies.
 pub fn decompress_gzip_bounded(input: &[u8], max_output: usize) -> Result<Vec<u8>, CompressError> {
     if input.len() < 18 {
@@ -375,7 +375,7 @@ pub fn compress_deflate(data: &[u8]) -> Vec<u8> {
 ///
 /// The header is `0x78 0x9C` (DEFLATE, 32 KiB window, check bits pass). The
 /// trailer is `adler32(data)` in big-endian order, over the uncompressed
-/// input. root-image, root-video, and the root-browser installer and profile
+/// input. anvil-image, anvil-video, and the anvil-browser installer and profile
 /// snapshots call this.
 pub fn compress_zlib(data: &[u8]) -> Vec<u8> {
     let deflated = compress_deflate(data);
@@ -395,7 +395,7 @@ pub fn compress_zlib(data: &[u8]) -> Vec<u8> {
 /// extra flags 0, and OS 255. No name, comment, or extra field is written.
 /// CRC-32 and ISIZE are little-endian. ISIZE is `data.len()` modulo 2^32.
 /// The CRC covers the uncompressed input. No sibling calls this on a
-/// library path. root-net only decompresses gzip.
+/// library path. anvil-net only decompresses gzip.
 pub fn compress_gzip(data: &[u8]) -> Vec<u8> {
     let deflated = compress_deflate(data);
     let mut out = Vec::with_capacity(10 + deflated.len() + 8);
@@ -981,8 +981,8 @@ mod tests {
 
     #[test]
     fn round_trips_deflate_zlib_and_gzip_with_repeated_phrases() {
-        let text = b"Root Engine proprietary compression test! \
-                     Root Engine proprietary compression test! \
+        let text = b"Anvil Engine proprietary compression test! \
+                     Anvil Engine proprietary compression test! \
                      123456789012345678901234567890";
 
         let deflated = compress_deflate(text);
@@ -1006,7 +1006,7 @@ mod tests {
         ];
         // Also verify stored block (BTYPE=00) decoding
         let stored_deflate: [u8; 10] = [0x01, 0x05, 0x00, 0xFA, 0xFF, b'F', b'l', b'u', b'x', b'!'];
-        assert_eq!(decompress_deflate(&stored_deflate).unwrap(), b"Root!");
+        assert_eq!(decompress_deflate(&stored_deflate).unwrap(), b"Anvil!");
         let _ = dynamic_zlib;
     }
 
