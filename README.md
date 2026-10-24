@@ -2,7 +2,7 @@
   <h1>flux-compress</h1>
   <p>DEFLATE, zlib, and gzip.</p>
   <p>
-    <img src="https://img.shields.io/badge/release-v.02-e8c37a?style=flat-square" alt="v.02" />
+    <img src="https://img.shields.io/badge/release-v.03-e8c37a?style=flat-square" alt="v.03" />
     <img src="https://img.shields.io/badge/status-Proof_of_Concept-d4a359?style=flat-square" alt="Proof of Concept" />
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MPL--2.0-blue?style=flat-square" alt="MPL-2.0" /></a>
     <a href="./SECURITY.md"><img src="https://img.shields.io/badge/security-policy-2ea44f?style=flat-square" alt="Security" /></a>
@@ -10,7 +10,7 @@
   </p>
 </div>
 
-Version 0.2.0.
+Version 0.3.0.
 
 The browser uses this for HTTP bodies and the profile file. [flux-image](https://github.com/buntatoes/flux-image) uses it for PNG and WebP, and uses `crc32` to check PNG chunks. [flux-video](https://github.com/buntatoes/flux-video) compresses frame data with it.
 
