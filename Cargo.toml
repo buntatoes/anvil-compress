@@ -1,6 +1,11 @@
+# DEFLATE, zlib, and gzip. Decompression refuses output past the caller cap
+# (default 32 MiB). Also exports crc32 and adler32.
+# Callers: flux-image (PNG IDAT), flux-video (frame packets), flux-net
+# (HTTP bodies), flux-browser (profile snapshot and setup payload).
+
 [package]
 name = "flux-compress"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["Buntos <324143321+buntatoes@users.noreply.github.com>"]
 license = "MPL-2.0"
@@ -10,3 +15,4 @@ homepage = "https://github.com/buntatoes/flux-compress"
 readme = "README.md"
 keywords = ["deflate", "zlib", "gzip", "compression"]
 categories = ["compression", "encoding"]
+publish = false
