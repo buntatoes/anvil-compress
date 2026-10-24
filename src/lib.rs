@@ -1,10 +1,6 @@
-//! Zero-dependency DEFLATE, zlib, and gzip compression and decompression library (Proof of Concept).
+//! DEFLATE, zlib, and gzip.
 //!
-//! Standalone `MPL-2.0` companion library for the Flux Browser Proof of Concept ecosystem.
-//! Implements bitstream decoding for uncompressed blocks, fixed Huffman trees,
-//! and dynamic Huffman trees with LZ77 sliding-window back-references, plus
-//! Adler-32 and CRC-32 checksum verification and bounded decompression-bomb
-//! protection.
+//! Decompress stops at a caller-supplied size. zlib checks Adler-32. gzip checks CRC-32 and ISIZE.
 
 use std::fmt;
 
