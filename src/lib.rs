@@ -1005,7 +1005,9 @@ mod tests {
             0xCF, 0x17, 0x71, 0x00,
         ];
         // Also verify stored block (BTYPE=00) decoding
-        let stored_deflate: [u8; 10] = [0x01, 0x05, 0x00, 0xFA, 0xFF, b'F', b'l', b'u', b'x', b'!'];
+        let stored_deflate: [u8; 11] = [
+            0x01, 0x06, 0x00, 0xF9, 0xFF, b'A', b'n', b'v', b'i', b'l', b'!',
+        ];
         assert_eq!(decompress_deflate(&stored_deflate).unwrap(), b"Anvil!");
         let _ = dynamic_zlib;
     }
