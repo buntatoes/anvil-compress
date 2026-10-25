@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Buntato
 //! DEFLATE (RFC 1951), zlib (RFC 1950), and gzip (RFC 1952).
 //!
 //! A raw DEFLATE input is a series of blocks: stored bytes, fixed Huffman
@@ -981,8 +983,8 @@ mod tests {
 
     #[test]
     fn round_trips_deflate_zlib_and_gzip_with_repeated_phrases() {
-        let text = b"Anvil Engine proprietary compression test! \
-                     Anvil Engine proprietary compression test! \
+        let text = b"A short phrase that repeats for the compressor. \
+                     A short phrase that repeats for the compressor. \
                      123456789012345678901234567890";
 
         let deflated = compress_deflate(text);
@@ -997,19 +999,43 @@ mod tests {
 
     #[test]
     fn decompresses_dynamic_huffman_stream_and_verifies_checksums() {
-        // RFC 1950 / 1951 dynamic-Huffman (BTYPE=10) zlib stream for:
-        // b"aaaaabbbbbcccccdddddeeeeefffffaaaaabbbbbcccccdddddeeeeefffff"
-        let dynamic_zlib: [u8; 32] = [
-            0x78, 0x9C, 0xED, 0xC1, 0x31, 0x01, 0x00, 0x00, 0x0C, 0x03, 0xA0, 0x85, 0xB6, 0x6E,
-            0x52, 0x1F, 0x88, 0x73, 0x1B, 0xDB, 0xB6, 0x6D, 0xDB, 0x9E, 0x01, 0x7B, 0x0B, 0x16,
-            0xCF, 0x17, 0x71, 0x00,
+        // zlib stream holding one final dynamic-Huffman block (BTYPE=10) with
+        // back-references. Made with Python's zlib.compress at level 9.
+        let text: &[u8] = b"Anvil parses HTML, styles it, lays out boxes, and paints them. \
+Anvil parses HTML, styles it, lays out boxes, and paints them. \
+Anvil parses HTML, styles it, lays out boxes, and paints them. \
+Then it waits for the next frame.";
+        let dynamic_zlib: [u8; 95] = [
+            0x78, 0xDA, 0xC5, 0x8B, 0xC1, 0x0D, 0x80, 0x20, 0x10, 0x04, 0x5B, 0xD9, 0x02, 0x08,
+            0x3D, 0xF8, 0xF3, 0xA1, 0x3F, 0x1B, 0x38, 0xE3, 0x19, 0x48, 0xF0, 0x30, 0xDC, 0xA9,
+            0xD0, 0xBD, 0x58, 0x85, 0xCF, 0x99, 0xCC, 0x0C, 0x72, 0xC7, 0x84, 0x93, 0x8A, 0xB2,
+            0x62, 0x5C, 0xE6, 0xC9, 0x41, 0xAD, 0xA5, 0x0E, 0xD1, 0x1C, 0x12, 0x35, 0x45, 0xBE,
+            0x0C, 0x6B, 0xAE, 0xAC, 0x0E, 0x24, 0x5B, 0x6F, 0xA3, 0x98, 0xC2, 0x02, 0x1F, 0x1E,
+            0xC3, 0xAF, 0xFB, 0x12, 0x58, 0x7A, 0x89, 0x87, 0x62, 0x77, 0x7B, 0x2E, 0x9F, 0x87,
+            0x70, 0x35, 0xEC, 0x85, 0x0E, 0xF6, 0x2F, 0xC6, 0x96, 0x4D, 0xAB,
         ];
+        // First DEFLATE header bits, LSB first: BFINAL=1, BTYPE=2.
+        assert_eq!(dynamic_zlib[2] & 1, 1);
+        assert_eq!((dynamic_zlib[2] >> 1) & 3, 2);
+        assert_eq!(decompress_zlib(&dynamic_zlib).unwrap(), text);
+        assert_eq!(decompress_deflate(&dynamic_zlib[2..91]).unwrap(), text);
+        assert_eq!(
+            decompress_zlib_bounded(&dynamic_zlib, text.len()).unwrap(),
+            text
+        );
+
+        let mut bad_adler = dynamic_zlib;
+        bad_adler[94] ^= 0x01;
+        assert!(matches!(
+            decompress_zlib(&bad_adler),
+            Err(CompressError::ChecksumMismatch { .. })
+        ));
+
         // Also verify stored block (BTYPE=00) decoding
         let stored_deflate: [u8; 11] = [
             0x01, 0x06, 0x00, 0xF9, 0xFF, b'A', b'n', b'v', b'i', b'l', b'!',
         ];
         assert_eq!(decompress_deflate(&stored_deflate).unwrap(), b"Anvil!");
-        let _ = dynamic_zlib;
     }
 
     #[test]
