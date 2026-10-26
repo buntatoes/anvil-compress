@@ -56,7 +56,11 @@ impl Rng {
 
     /// Value in `0..n`. Returns 0 when `n` is 0.
     fn below(&mut self, n: usize) -> usize {
-        if n == 0 { 0 } else { (self.next_u64() % n as u64) as usize }
+        if n == 0 {
+            0
+        } else {
+            (self.next_u64() % n as u64) as usize
+        }
     }
 
     fn byte(&mut self) -> u8 {
@@ -155,7 +159,10 @@ fn check_case(label: &str, case: usize, input: Vec<u8>, target: fn(&[u8])) {
         }
         Err(mpsc::RecvTimeoutError::Disconnected) => {
             let _ = handle.join();
-            panic!("{label}: case {case} panicked on input {}", preview(&shared));
+            panic!(
+                "{label}: case {case} panicked on input {}",
+                preview(&shared)
+            );
         }
         Err(mpsc::RecvTimeoutError::Timeout) => {
             panic!(
@@ -168,7 +175,12 @@ fn check_case(label: &str, case: usize, input: Vec<u8>, target: fn(&[u8])) {
 }
 
 /// Generate cases from `seed` until the budget is spent and check each one.
-fn run_cases(label: &str, seed: u64, mut generate: impl FnMut(&mut Rng) -> Vec<u8>, target: fn(&[u8])) {
+fn run_cases(
+    label: &str,
+    seed: u64,
+    mut generate: impl FnMut(&mut Rng) -> Vec<u8>,
+    target: fn(&[u8]),
+) {
     let mut rng = Rng::new(seed);
     let budget = test_budget();
     let started = Instant::now();
@@ -183,7 +195,14 @@ fn run_cases(label: &str, seed: u64, mut generate: impl FnMut(&mut Rng) -> Vec<u
 
 /// Plain text with long repeats, so the encoders emit back-references.
 fn sample_text(rng: &mut Rng) -> Vec<u8> {
-    let words: [&[u8]; 6] = [b"anvil ", b"forge ", b"spark ", b"\n", b"0123456789", b"aaaaaaaa"];
+    let words: [&[u8]; 6] = [
+        b"anvil ",
+        b"forge ",
+        b"spark ",
+        b"\n",
+        b"0123456789",
+        b"aaaaaaaa",
+    ];
     let mut out = Vec::new();
     let count = rng.below(200);
     for _ in 0..count {
@@ -202,42 +221,59 @@ fn decode_all(input: &[u8]) {
         decompress_gzip_bounded(input, OUTPUT_CAP),
     ];
     for out in decoded.into_iter().flatten() {
-        assert!(out.len() <= OUTPUT_CAP, "output cap exceeded: {}", out.len());
+        assert!(
+            out.len() <= OUTPUT_CAP,
+            "output cap exceeded: {}",
+            out.len()
+        );
     }
 }
 
 #[test]
 fn random_bytes_do_not_panic() {
-    run_cases("compress-random", 1, |rng| {
-        let mut input = rng.bytes(256);
-        // Steer some inputs past the header checks.
-        match rng.below(4) {
-            0 if input.len() >= 2 => input[..2].copy_from_slice(&[0x78, 0x9C]),
-            1 if input.len() >= 3 => input[..3].copy_from_slice(&[0x1F, 0x8B, 0x08]),
-            _ => {}
-        }
-        input
-    }, decode_all);
+    run_cases(
+        "compress-random",
+        1,
+        |rng| {
+            let mut input = rng.bytes(256);
+            // Steer some inputs past the header checks.
+            match rng.below(4) {
+                0 if input.len() >= 2 => input[..2].copy_from_slice(&[0x78, 0x9C]),
+                1 if input.len() >= 3 => input[..3].copy_from_slice(&[0x1F, 0x8B, 0x08]),
+                _ => {}
+            }
+            input
+        },
+        decode_all,
+    );
 }
 
 #[test]
 fn mutated_streams_do_not_panic() {
-    run_cases("compress-mutated", 2, |rng| {
-        let text = sample_text(rng);
-        let packed = match rng.below(3) {
-            0 => compress_deflate(&text),
-            1 => compress_zlib(&text),
-            _ => compress_gzip(&text),
-        };
-        mutate(rng, &packed)
-    }, decode_all);
+    run_cases(
+        "compress-mutated",
+        2,
+        |rng| {
+            let text = sample_text(rng);
+            let packed = match rng.below(3) {
+                0 => compress_deflate(&text),
+                1 => compress_zlib(&text),
+                _ => compress_gzip(&text),
+            };
+            mutate(rng, &packed)
+        },
+        decode_all,
+    );
 }
 
 #[test]
 fn round_trip_holds_for_random_text() {
     run_cases("compress-round-trip", 3, sample_text, |text| {
         let packed = compress_deflate(text);
-        assert_eq!(decompress_deflate_bounded(&packed, OUTPUT_CAP).unwrap(), text);
+        assert_eq!(
+            decompress_deflate_bounded(&packed, OUTPUT_CAP).unwrap(),
+            text
+        );
         let packed = compress_zlib(text);
         assert_eq!(decompress_zlib_bounded(&packed, OUTPUT_CAP).unwrap(), text);
         let packed = compress_gzip(text);
