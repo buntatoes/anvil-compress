@@ -31,7 +31,7 @@ The browser uses this for HTTP bodies and the profile file. [anvil-image](https:
 cargo test
 ```
 
-Rust 2024 edition, Rust 1.85.1 or newer. No crates.io dependencies.
+Rust 2024 edition, Rust 1.99.1 or newer. No crates.io dependencies.
 
 ## The other repositories
 
