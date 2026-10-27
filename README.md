@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>anvil-compress</h1>
+  <h1>Anvil Compress</h1>
   <p>DEFLATE, zlib, and gzip.</p>
   <p>
     <img src="https://img.shields.io/badge/release-v.03-e8c37a?style=flat-square" alt="v.03" />
